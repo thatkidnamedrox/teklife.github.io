@@ -1,0 +1,2088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEKLIFE Footwork: Digital Musicology Analysis</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #00ff41;
+            --secondary: #ff0080;
+            --tertiary: #00d4ff;
+            --bg-dark: #0a0a0f;
+            --bg-mid: #151520;
+            --bg-light: #1f1f2e;
+            --text: #e0e0e8;
+            --text-dim: #808090;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #0f0f1a 50%, var(--bg-dark) 100%);
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 255, 65, 0.03) 2px,
+                    rgba(0, 255, 65, 0.03) 4px
+                );
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            color: var(--primary);
+            z-index: 9999;
+            text-align: center;
+        }
+        
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            position: relative;
+        }
+        
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 4.5rem;
+            font-weight: 900;
+            letter-spacing: 8px;
+            background: linear-gradient(135deg, var(--primary), var(--tertiary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            animation: glitch 3s infinite, pulse 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes pulse {
+            0% { filter: brightness(1); }
+            100% { filter: brightness(1.2); }
+        }
+        
+        @keyframes glitch {
+            0%, 100% { text-shadow: 2px 2px 0 rgba(255, 0, 128, 0.3), -2px -2px 0 rgba(0, 212, 255, 0.3); }
+            25% { text-shadow: -2px 2px 0 rgba(255, 0, 128, 0.3), 2px -2px 0 rgba(0, 212, 255, 0.3); }
+            50% { text-shadow: 2px -2px 0 rgba(255, 0, 128, 0.3), -2px 2px 0 rgba(0, 212, 255, 0.3); }
+            75% { text-shadow: -2px -2px 0 rgba(255, 0, 128, 0.3), 2px 2px 0 rgba(0, 212, 255, 0.3); }
+        }
+        
+        .subtitle {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.8rem;
+            letter-spacing: 4px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 60px;
+        }
+        
+        .stat-card {
+            background: var(--bg-light);
+            border: 2px solid var(--primary);
+            padding: 20px;
+            clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+            transition: all 0.3s ease, opacity 0.6s ease, transform 0.6s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 255, 65, 0.3);
+        }
+        
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: var(--primary);
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .viz-section {
+            background: var(--bg-mid);
+            border-left: 4px solid var(--primary);
+            padding: 40px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 0.8s ease forwards;
+        }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .viz-section:nth-child(1) { animation-delay: 0.1s; }
+        .viz-section:nth-child(2) { animation-delay: 0.2s; }
+        .viz-section:nth-child(3) { animation-delay: 0.3s; }
+        .viz-section:nth-child(4) { animation-delay: 0.4s; }
+        .viz-section:nth-child(5) { animation-delay: 0.5s; }
+        .viz-section:nth-child(6) { animation-delay: 0.6s; }
+        
+        .viz-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
+            opacity: 0.05;
+            pointer-events: none;
+        }
+        
+        .viz-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 3px;
+            color: var(--primary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .viz-description {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        svg {
+            width: 100%;
+            height: auto;
+        }
+        
+        .axis text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            fill: var(--text-dim);
+        }
+        
+        .axis line, .axis path {
+            stroke: var(--text-dim);
+            stroke-width: 1;
+        }
+        
+        .grid line {
+            stroke: var(--text-dim);
+            stroke-opacity: 0.1;
+            stroke-dasharray: 2,2;
+        }
+        
+        .tooltip {
+            position: absolute;
+            padding: 12px 16px;
+            background: var(--bg-dark);
+            border: 2px solid var(--primary);
+            border-radius: 0;
+            font-size: 11px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+        }
+        
+        .tooltip-title {
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+        
+        .legend {
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .legend-item {
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .legend-item:hover {
+            opacity: 0.7;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+                letter-spacing: 4px;
+            }
+            .subtitle {
+                font-size: 1.2rem;
+            }
+            .viz-section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">LOADING DATA</div>
+    <div class="container" id="container" style="opacity: 0;">
+        <header>
+            <h1>TEKLIFE</h1>
+            <div class="subtitle">Digital Musicology Analysis</div>
+        </header>
+        
+        <div class="stats-grid" id="stats"></div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Tempo Distribution & BPM Clustering</h2>
+            <p class="viz-description">
+                Footwork music is characterized by its ~160 BPM tempo, though often detected at half-time (~80 BPM) by analysis tools. 
+                This histogram reveals the tempo clusters and rhythmic characteristics of the genre.
+            </p>
+            <svg id="tempo-viz" viewBox="0 0 1200 500"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Temporal Evolution: Uploads & Engagement</h2>
+            <p class="viz-description">
+                Tracking how Teklife footwork has evolved on YouTube over time, showing upload frequency and audience engagement patterns from 2010 to 2025.
+            </p>
+            <svg id="timeline-viz" viewBox="0 0 1200 500"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Sonic Fingerprint: Spectral Characteristics</h2>
+            <p class="viz-description">
+                Each track's spectral centroid (brightness) vs. RMS energy reveals the sonic signature of footwork—bright, energetic, and dynamic.
+                Size indicates onset strength (rhythmic intensity), color shows tempo clustering.
+            </p>
+            <svg id="spectral-viz" viewBox="0 0 1200 600"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Feature Correlation Matrix</h2>
+            <p class="viz-description">
+                Exploring relationships between audio features to understand what makes footwork distinctive: 
+                tempo, spectral characteristics, and rhythmic properties.
+            </p>
+            <svg id="correlation-viz" viewBox="0 0 1000 1000"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Artist Network & Output</h2>
+            <p class="viz-description">
+                The ecosystem of Teklife artists and channels, sized by track count and colored by average engagement.
+            </p>
+            <svg id="artist-viz" viewBox="0 0 1200 700"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Popularity vs. Sonic Innovation</h2>
+            <p class="viz-description">
+                Does sonic experimentation (measured by spectral variance) correlate with engagement? 
+                Exploring the relationship between creative risk and audience response.
+            </p>
+            <svg id="innovation-viz" viewBox="0 0 1200 500"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">MFCC Timbre Space</h2>
+            <p class="viz-description">
+                Mel-Frequency Cepstral Coefficients reveal timbral characteristics. The first two MFCCs capture the 
+                overall spectral shape—a sonic fingerprint of each track's texture and tone.
+            </p>
+            <svg id="mfcc-viz" viewBox="0 0 1200 600"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Harmonic Complexity: Chroma Analysis</h2>
+            <p class="viz-description">
+                Chroma features capture pitch class distribution. Higher values indicate more harmonic content,
+                while variation (std) shows harmonic complexity and movement throughout tracks.
+            </p>
+            <svg id="chroma-viz" viewBox="0 0 1200 500"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Spectral Profile: Bandwidth vs. Rolloff</h2>
+            <p class="viz-description">
+                Spectral bandwidth and rolloff reveal frequency distribution. Rolloff indicates the frequency below which 
+                85% of energy is contained. Together they show the "width" and "weight" of each track's frequency spectrum.
+            </p>
+            <svg id="spectral-profile-viz" viewBox="0 0 1200 600"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Rhythmic Intensity Distribution</h2>
+            <p class="viz-description">
+                Onset strength measures rhythmic transients—the "punch" of beats. This distribution reveals how 
+                footwork tracks cluster around different rhythmic intensity profiles.
+            </p>
+            <svg id="rhythm-viz" viewBox="0 0 1200 500"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Texture Analysis: Zero-Crossing Rate</h2>
+            <p class="viz-description">
+                Zero-crossing rate correlates with noisiness and percussive content. Higher ZCR suggests more high-frequency
+                energy and percussive elements—key characteristics of footwork's aggressive sound design.
+            </p>
+            <svg id="zcr-viz" viewBox="0 0 1200 600"></svg>
+        </div>
+        
+        <div class="viz-section">
+            <h2 class="viz-title">Multi-Dimensional Feature Space</h2>
+            <p class="viz-description">
+                Parallel coordinates visualization showing how multiple audio features relate across tracks.
+                Each line represents a track, colored by tempo. Patterns reveal the multi-dimensional signature of footwork.
+            </p>
+            <svg id="parallel-viz" viewBox="0 0 1200 700"></svg>
+        </div>
+    </div>
+    
+    <footer style="text-align: center; padding: 40px 20px; color: var(--text-dim); font-size: 0.85rem; border-top: 1px solid var(--text-dim); margin-top: 60px; opacity: 0.6;">
+        <p style="margin-bottom: 10px;">
+            <strong style="color: var(--primary);">TEKLIFE FOOTWORK DIGITAL MUSICOLOGY ANALYSIS</strong>
+        </p>
+        <p style="margin-bottom: 5px;">
+            Audio features extracted using Librosa • Metadata from YouTube
+        </p>
+        <p>
+            Visualizations built with D3.js v7 • Click on data points to explore tracks on YouTube
+        </p>
+    </footer>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <script>
+        // Load and process data
+        Promise.all([
+            d3.json('yt_clean_analysis.json'),
+            d3.json('yt_clean_metadata.json')
+        ]).then(([analysisData, metadataData]) => {
+            // Merge datasets
+            const data = analysisData.map((analysis, i) => ({
+                ...analysis,
+                ...metadataData[i],
+                date: parseDate(metadataData[i].upload_date),
+                engagement: metadataData[i].view_count + (metadataData[i].like_count * 10),
+                spectral_variance: analysis.spectral_centroid_std / analysis.spectral_centroid_mean
+            }));
+            
+            function parseDate(dateStr) {
+                const year = dateStr.substring(0, 4);
+                const month = dateStr.substring(4, 6);
+                const day = dateStr.substring(6, 8);
+                return new Date(year, month - 1, day);
+            }
+            
+            // Calculate statistics
+            const stats = {
+                totalTracks: data.length,
+                avgTempo: d3.mean(data, d => d.tempo_bpm).toFixed(1),
+                dateRange: `${d3.min(data, d => d.date).getFullYear()}-${d3.max(data, d => d.date).getFullYear()}`,
+                totalViews: d3.sum(data, d => d.view_count),
+                avgDuration: (d3.mean(data, d => d.duration_seconds) / 60).toFixed(1)
+            };
+            
+            console.log('Data loaded:', data.length, 'tracks');
+            console.log('Stats:', stats);
+            
+            // Hide loading, show content
+            d3.select('#loading').style('display', 'none');
+            d3.select('#container')
+                .transition()
+                .duration(800)
+                .style('opacity', 1);
+            
+            renderStats(stats);
+            renderTempoViz(data);
+            renderTimelineViz(data);
+            renderSpectralViz(data);
+            renderCorrelationViz(data);
+            renderArtistViz(data);
+            renderInnovationViz(data);
+            renderMFCCViz(data);
+            renderChromaViz(data);
+            renderSpectralProfileViz(data);
+            renderRhythmViz(data);
+            renderZCRViz(data);
+            renderParallelViz(data);
+        }).catch(error => {
+            console.error('Error loading data:', error);
+            d3.select('#loading').html('ERROR LOADING DATA<br><small style="font-size: 0.8rem;">Check console for details</small>');
+        });
+        
+        function renderStats(stats) {
+            const statsGrid = d3.select('#stats');
+            const statsData = [
+                { label: 'Total Tracks', value: stats.totalTracks },
+                { label: 'Avg BPM', value: stats.avgTempo },
+                { label: 'Years Active', value: stats.dateRange },
+                { label: 'Total Views', value: (stats.totalViews / 1000000).toFixed(1) + 'M' },
+                { label: 'Avg Duration', value: stats.avgDuration + ' min' }
+            ];
+            
+            const cards = statsGrid.selectAll('.stat-card')
+                .data(statsData)
+                .join('div')
+                .attr('class', 'stat-card')
+                .style('opacity', 0)
+                .style('transform', 'translateY(20px)')
+                .html(d => `
+                    <div class="stat-value">${d.value}</div>
+                    <div class="stat-label">${d.label}</div>
+                `);
+            
+            // Staggered fade-in
+            cards.transition()
+                .duration(600)
+                .delay((d, i) => i * 100)
+                .style('opacity', 1)
+                .style('transform', 'translateY(0)');
+        }
+        
+        function renderTempoViz(data) {
+            const svg = d3.select('#tempo-viz');
+            const width = 1200, height = 500;
+            const margin = { top: 40, right: 40, bottom: 60, left: 70 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Create histogram
+            const x = d3.scaleLinear()
+                .domain([70, 180])
+                .range([0, width - margin.left - margin.right]);
+            
+            const histogram = d3.histogram()
+                .domain(x.domain())
+                .thresholds(x.ticks(40))
+                .value(d => d.tempo_bpm);
+            
+            const bins = histogram(data);
+            
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(bins, d => d.length)])
+                .range([height - margin.top - margin.bottom, 0]);
+            
+            // Grid
+            g.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y).tickSize(-(width - margin.left - margin.right)).tickFormat(''));
+            
+            // Bars with gradient
+            const gradient = svg.append('defs')
+                .append('linearGradient')
+                .attr('id', 'tempo-gradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '0%').attr('y2', '100%');
+            
+            gradient.append('stop')
+                .attr('offset', '0%')
+                .attr('stop-color', 'var(--primary)')
+                .attr('stop-opacity', 1);
+            
+            gradient.append('stop')
+                .attr('offset', '100%')
+                .attr('stop-color', 'var(--tertiary)')
+                .attr('stop-opacity', 0.6);
+            
+            g.selectAll('rect')
+                .data(bins)
+                .join('rect')
+                .attr('x', d => x(d.x0) + 1)
+                .attr('y', height - margin.top - margin.bottom)
+                .attr('width', d => Math.max(0, x(d.x1) - x(d.x0) - 2))
+                .attr('height', 0)
+                .attr('fill', 'url(#tempo-gradient)')
+                .attr('stroke', 'var(--primary)')
+                .attr('stroke-width', 0.5)
+                .on('mouseover', function(event, d) {
+                    d3.select(this).attr('opacity', 0.7);
+                    showTooltip(event, `<div class="tooltip-title">${d.x0}-${d.x1} BPM</div>
+                        <div>${d.length} tracks</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this).attr('opacity', 1);
+                    hideTooltip();
+                })
+                .transition()
+                .duration(1000)
+                .delay((d, i) => i * 20)
+                .attr('y', d => y(d.length))
+                .attr('height', d => height - margin.top - margin.bottom - y(d.length));
+            
+            // Add reference lines for classic footwork BPMs
+            const refLines = [
+                { bpm: 80, label: '80 BPM (Half-time)' },
+                { bpm: 160, label: '160 BPM (Classic Footwork)' }
+            ];
+            
+            refLines.forEach(ref => {
+                g.append('line')
+                    .attr('x1', x(ref.bpm))
+                    .attr('x2', x(ref.bpm))
+                    .attr('y1', 0)
+                    .attr('y2', height - margin.top - margin.bottom)
+                    .attr('stroke', 'var(--secondary)')
+                    .attr('stroke-width', 2)
+                    .attr('stroke-dasharray', '5,5')
+                    .attr('opacity', 0.6);
+                
+                g.append('text')
+                    .attr('x', x(ref.bpm))
+                    .attr('y', -10)
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', 'var(--secondary)')
+                    .attr('font-size', '10px')
+                    .text(ref.label);
+            });
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y));
+            
+            // Labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height - 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'var(--text)')
+                .attr('font-size', '12px')
+                .text('Tempo (BPM)');
+            
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'var(--text)')
+                .attr('font-size', '12px')
+                .text('Track Count');
+        }
+        
+        function renderTimelineViz(data) {
+            const svg = d3.select('#timeline-viz');
+            const width = 1200, height = 500;
+            const margin = { top: 40, right: 40, bottom: 60, left: 70 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Aggregate by month
+            const monthlyData = d3.rollups(
+                data,
+                v => ({
+                    count: v.length,
+                    avgViews: d3.mean(v, d => d.view_count),
+                    totalViews: d3.sum(v, d => d.view_count),
+                    avgLikes: d3.mean(v, d => d.like_count)
+                }),
+                d => d3.timeMonth(d.date)
+            ).map(([date, stats]) => ({ date, ...stats }))
+            .sort((a, b) => a.date - b.date);
+            
+            const x = d3.scaleTime()
+                .domain(d3.extent(monthlyData, d => d.date))
+                .range([0, width - margin.left - margin.right]);
+            
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(monthlyData, d => d.count)])
+                .range([height - margin.top - margin.bottom, 0]);
+            
+            const y2 = d3.scaleLinear()
+                .domain([0, d3.max(monthlyData, d => d.avgViews)])
+                .range([height - margin.top - margin.bottom, 0]);
+            
+            // Grid
+            g.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y).tickSize(-(width - margin.left - margin.right)).tickFormat(''));
+            
+            // Area for upload count
+            const area = d3.area()
+                .x(d => x(d.date))
+                .y0(height - margin.top - margin.bottom)
+                .y1(d => y(d.count))
+                .curve(d3.curveMonotoneX);
+            
+            const areaGradient = svg.append('defs')
+                .append('linearGradient')
+                .attr('id', 'area-gradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '0%').attr('y2', '100%');
+            
+            areaGradient.append('stop')
+                .attr('offset', '0%')
+                .attr('stop-color', 'var(--primary)')
+                .attr('stop-opacity', 0.8);
+            
+            areaGradient.append('stop')
+                .attr('offset', '100%')
+                .attr('stop-color', 'var(--primary)')
+                .attr('stop-opacity', 0.1);
+            
+            g.append('path')
+                .datum(monthlyData)
+                .attr('fill', 'url(#area-gradient)')
+                .attr('stroke', 'var(--primary)')
+                .attr('stroke-width', 2)
+                .attr('d', area);
+            
+            // Line for views
+            const line = d3.line()
+                .x(d => x(d.date))
+                .y(d => y2(d.avgViews))
+                .curve(d3.curveMonotoneX);
+            
+            g.append('path')
+                .datum(monthlyData)
+                .attr('fill', 'none')
+                .attr('stroke', 'var(--secondary)')
+                .attr('stroke-width', 2)
+                .attr('d', line);
+            
+            // Add circles for engagement
+            g.selectAll('circle')
+                .data(monthlyData)
+                .join('circle')
+                .attr('cx', d => x(d.date))
+                .attr('cy', d => y2(d.avgViews))
+                .attr('r', 3)
+                .attr('fill', 'var(--secondary)')
+                .attr('opacity', 0)
+                .on('mouseover', function(event, d) {
+                    d3.select(this).attr('r', 6).attr('opacity', 1);
+                    showTooltip(event, `<div class="tooltip-title">${d3.timeFormat('%B %Y')(d.date)}</div>
+                        <div>Uploads: ${d.count}</div>
+                        <div>Avg Views: ${d.avgViews.toFixed(0)}</div>
+                        <div>Avg Likes: ${d.avgLikes.toFixed(0)}</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this).attr('r', 3).attr('opacity', 0);
+                    hideTooltip();
+                });
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x).tickFormat(d3.timeFormat('%Y')));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(${width - margin.left - margin.right},0)`)
+                .call(d3.axisRight(y2));
+            
+            // Labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height - 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'var(--text)')
+                .attr('font-size', '12px')
+                .text('Upload Date');
+            
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'var(--primary)')
+                .attr('font-size', '12px')
+                .text('Upload Count');
+            
+            svg.append('text')
+                .attr('x', width - 30)
+                .attr('y', 30)
+                .attr('text-anchor', 'end')
+                .attr('fill', 'var(--secondary)')
+                .attr('font-size', '12px')
+                .text('Avg Views');
+        }
+        
+        function renderSpectralViz(data) {
+            const svg = d3.select('#spectral-viz');
+            const width = 1200, height = 600;
+            const margin = { top: 40, right: 140, bottom: 60, left: 70 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            const x = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.spectral_centroid_mean))
+                .range([0, width - margin.left - margin.right])
+                .nice();
+            
+            const y = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.rms_mean))
+                .range([height - margin.top - margin.bottom, 0])
+                .nice();
+            
+            // Tempo-based color scale with actual hex colors
+            const colorScale = d3.scaleSequential()
+                .domain([75, 165])
+                .interpolator(t => {
+                    if (t < 0.5) return d3.interpolateRgb('#00d4ff', '#00ff41')(t * 2);
+                    return d3.interpolateRgb('#00ff41', '#ff0080')((t - 0.5) * 2);
+                });
+            
+            const sizeScale = d3.scaleSqrt()
+                .domain(d3.extent(data, d => d.onset_strength_mean))
+                .range([3, 15]);
+            
+            // Grid
+            g.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y).tickSize(-(width - margin.left - margin.right)).tickFormat(''));
+            
+            g.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x).tickSize(-(height - margin.top - margin.bottom)).tickFormat(''));
+            
+            // Circles
+            g.selectAll('circle')
+                .data(data)
+                .join('circle')
+                .attr('cx', d => x(d.spectral_centroid_mean))
+                .attr('cy', d => y(d.rms_mean))
+                .attr('r', 0)
+                .attr('fill', d => colorScale(d.tempo_bpm))
+                .attr('fill-opacity', 0.6)
+                .attr('stroke', d => colorScale(d.tempo_bpm))
+                .attr('stroke-width', 1.5)
+                .style('cursor', 'pointer')
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('fill-opacity', 1)
+                        .attr('stroke-width', 3)
+                        .raise();
+                    showTooltip(event, `<div class="tooltip-title">${d.title}</div>
+                        <div>Artist: ${d.uploader}</div>
+                        <div>BPM: ${d.tempo_bpm.toFixed(1)}</div>
+                        <div>Brightness: ${d.spectral_centroid_mean.toFixed(0)} Hz</div>
+                        <div>Energy: ${d.rms_mean.toFixed(3)}</div>
+                        <div>Onset: ${d.onset_strength_mean.toFixed(2)}</div>
+                        <div>Views: ${d.view_count.toLocaleString()}</div>
+                        <div style="margin-top: 5px; color: var(--tertiary); font-size: 9px;">CLICK TO OPEN ON YOUTUBE</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('fill-opacity', 0.6)
+                        .attr('stroke-width', 1.5);
+                    hideTooltip();
+                })
+                .on('click', function(event, d) {
+                    if (d.url) {
+                        window.open(d.url, '_blank');
+                    }
+                })
+                .transition()
+                .duration(1000)
+                .delay((d, i) => i * 5)
+                .attr('r', d => sizeScale(d.onset_strength_mean));
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y));
+            
+            // Labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height - 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'var(--text)')
+                .attr('font-size', '12px')
+                .text('Spectral Centroid (Brightness) - Hz');
+            
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'var(--text)')
+                .attr('font-size', '12px')
+                .text('RMS Energy');
+            
+            // Legend
+            const legend = svg.append('g')
+                .attr('class', 'legend')
+                .attr('transform', `translate(${width - 120}, ${margin.top + 20})`);
+            
+            legend.append('text')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('fill', 'var(--text)')
+                .attr('font-weight', 'bold')
+                .text('Tempo (BPM)');
+            
+            const legendScale = d3.scaleLinear()
+                .domain([75, 165])
+                .range([0, 100]);
+            
+            const legendAxis = d3.axisRight(legendScale)
+                .tickValues([80, 100, 120, 140, 160])
+                .tickSize(0);
+            
+            const defs = svg.append('defs');
+            const legendGradient = defs.append('linearGradient')
+                .attr('id', 'legend-gradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '0%').attr('y2', '100%');
+            
+            legendGradient.selectAll('stop')
+                .data(d3.range(0, 1.1, 0.1))
+                .join('stop')
+                .attr('offset', d => `${d * 100}%`)
+                .attr('stop-color', d => colorScale(75 + d * 90));
+            
+            legend.append('rect')
+                .attr('x', 0)
+                .attr('y', 10)
+                .attr('width', 15)
+                .attr('height', 100)
+                .attr('fill', 'url(#legend-gradient)');
+            
+            legend.append('g')
+                .attr('transform', 'translate(15, 10)')
+                .call(legendAxis)
+                .select('.domain').remove();
+        }
+        
+        function renderCorrelationViz(data) {
+            const svg = d3.select('#correlation-viz');
+            const width = 1000, height = 1000;
+            const margin = { top: 100, right: 50, bottom: 50, left: 200 };
+            const size = Math.min(width, height) - margin.left - margin.right;
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Select key features
+            const features = [
+                { key: 'tempo_bpm', label: 'Tempo' },
+                { key: 'spectral_centroid_mean', label: 'Brightness' },
+                { key: 'rms_mean', label: 'Energy' },
+                { key: 'onset_strength_mean', label: 'Onset Strength' },
+                { key: 'zcr_mean', label: 'Zero Crossing Rate' },
+                { key: 'chroma_mean', label: 'Harmonic Content' },
+                { key: 'spectral_contrast_mean', label: 'Spectral Contrast' },
+                { key: 'view_count', label: 'Views' }
+            ];
+            
+            // Calculate correlations
+            const correlations = [];
+            features.forEach(f1 => {
+                features.forEach(f2 => {
+                    const corr = calculateCorrelation(
+                        data.map(d => d[f1.key]),
+                        data.map(d => d[f2.key])
+                    );
+                    correlations.push({
+                        x: f1.label,
+                        y: f2.label,
+                        value: corr
+                    });
+                });
+            });
+            
+            const colorScale = d3.scaleSequential()
+                .domain([-1, 1])
+                .interpolator(t => {
+                    if (t < 0.5) return d3.interpolateRgb('#00d4ff', '#1f1f2e')(t * 2);
+                    return d3.interpolateRgb('#1f1f2e', '#ff0080')((t - 0.5) * 2);
+                });
+            
+            const x = d3.scaleBand()
+                .domain(features.map(f => f.label))
+                .range([0, size])
+                .padding(0.05);
+            
+            const y = d3.scaleBand()
+                .domain(features.map(f => f.label))
+                .range([0, size])
+                .padding(0.05);
+            
+            // Cells
+            g.selectAll('rect')
+                .data(correlations)
+                .join('rect')
+                .attr('x', d => x(d.x))
+                .attr('y', d => y(d.y))
+                .attr('width', x.bandwidth())
+                .attr('height', y.bandwidth())
+                .attr('fill', d => colorScale(d.value))
+                .attr('stroke', 'var(--bg-dark)')
+                .attr('stroke-width', 2)
+                .attr('opacity', 0)
+                .on('mouseover', function(event, d) {
+                    d3.select(this).attr('stroke', 'var(--primary)').attr('stroke-width', 3);
+                    showTooltip(event, `<div class="tooltip-title">${d.x} vs ${d.y}</div>
+                        <div>Correlation: ${d.value.toFixed(3)}</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this).attr('stroke', 'var(--bg-dark)').attr('stroke-width', 2);
+                    hideTooltip();
+                })
+                .transition()
+                .duration(1000)
+                .delay((d, i) => i * 10)
+                .attr('opacity', 1);
+            
+            // Text values
+            g.selectAll('text.cell-value')
+                .data(correlations)
+                .join('text')
+                .attr('class', 'cell-value')
+                .attr('x', d => x(d.x) + x.bandwidth() / 2)
+                .attr('y', d => y(d.y) + y.bandwidth() / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', d => Math.abs(d.value) > 0.5 ? 'var(--text)' : 'var(--text-dim)')
+                .attr('font-size', '9px')
+                .attr('font-family', 'JetBrains Mono')
+                .attr('opacity', 0)
+                .text(d => d.value.toFixed(2))
+                .transition()
+                .duration(1000)
+                .delay((d, i) => i * 10 + 500)
+                .attr('opacity', d => Math.abs(d.value) > 0.3 ? 1 : 0);
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y).tickSize(0))
+                .select('.domain').remove();
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0, ${size})`)
+                .call(d3.axisBottom(x).tickSize(0))
+                .select('.domain').remove();
+            
+            g.selectAll('.axis text')
+                .attr('font-size', '11px')
+                .attr('fill', 'var(--text)');
+            
+            // Rotate x-axis labels
+            g.selectAll('.axis:last-of-type text')
+                .attr('transform', 'rotate(-45)')
+                .attr('text-anchor', 'end')
+                .attr('dx', '-0.5em')
+                .attr('dy', '0.5em');
+        }
+        
+        function calculateCorrelation(x, y) {
+            const n = x.length;
+            const meanX = d3.mean(x);
+            const meanY = d3.mean(y);
+            
+            let num = 0, denX = 0, denY = 0;
+            for (let i = 0; i < n; i++) {
+                const dx = x[i] - meanX;
+                const dy = y[i] - meanY;
+                num += dx * dy;
+                denX += dx * dx;
+                denY += dy * dy;
+            }
+            
+            return num / Math.sqrt(denX * denY);
+        }
+        
+        function renderArtistViz(data) {
+            const svg = d3.select('#artist-viz');
+            const width = 1200, height = 700;
+            const margin = { top: 40, right: 40, bottom: 40, left: 40 };
+            const vizWidth = width - margin.left - margin.right;
+            const vizHeight = height - margin.top - margin.bottom;
+            
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Aggregate by artist
+            const artistData = Array.from(d3.rollup(
+                data,
+                v => ({
+                    count: v.length,
+                    avgViews: d3.mean(v, d => d.view_count),
+                    totalViews: d3.sum(v, d => d.view_count),
+                    avgTempo: d3.mean(v, d => d.tempo_bpm)
+                }),
+                d => d.uploader
+            ), ([name, stats]) => ({ 
+                name, 
+                ...stats,
+                x: vizWidth / 2 + (Math.random() - 0.5) * 100,
+                y: vizHeight / 2 + (Math.random() - 0.5) * 100
+            }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 20); // Top 20 artists
+            
+            console.log('Artist data:', artistData);
+            
+            const sizeScale = d3.scaleSqrt()
+                .domain(d3.extent(artistData, d => d.count))
+                .range([20, 80]);
+            
+            const colorScale = d3.scaleSequential()
+                .domain(d3.extent(artistData, d => d.avgViews))
+                .interpolator(d3.interpolateRgb('#00d4ff', '#ff0080'));
+            
+            // Create nodes first
+            const nodes = g.selectAll('g.node')
+                .data(artistData)
+                .join('g')
+                .attr('class', 'node');
+            
+            nodes.append('circle')
+                .attr('r', d => sizeScale(d.count))
+                .attr('fill', d => colorScale(d.avgViews))
+                .attr('fill-opacity', 0.7)
+                .attr('stroke', 'var(--primary)')
+                .attr('stroke-width', 2)
+                .style('cursor', 'pointer')
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('fill-opacity', 1)
+                        .attr('stroke-width', 4);
+                    showTooltip(event, `<div class="tooltip-title">${d.name}</div>
+                        <div>Tracks: ${d.count}</div>
+                        <div>Avg Views: ${d.avgViews.toFixed(0)}</div>
+                        <div>Total Views: ${d.totalViews.toLocaleString()}</div>
+                        <div>Avg BPM: ${d.avgTempo.toFixed(1)}</div>
+                        <div style="margin-top: 5px; color: var(--tertiary); font-size: 9px;">DRAG TO MOVE</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('fill-opacity', 0.7)
+                        .attr('stroke-width', 2);
+                    hideTooltip();
+                });
+            
+            nodes.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', 'var(--text)')
+                .attr('font-size', d => Math.max(10, sizeScale(d.count) / 3.5))
+                .attr('font-weight', 'bold')
+                .attr('pointer-events', 'none')
+                .text(d => d.count);
+            
+            nodes.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('y', d => sizeScale(d.count) + 18)
+                .attr('fill', 'var(--text-dim)')
+                .attr('font-size', '10px')
+                .attr('pointer-events', 'none')
+                .style('text-shadow', '0 0 3px var(--bg-dark), 0 0 3px var(--bg-dark)')
+                .text(d => {
+                    const maxLen = 20;
+                    return d.name.length > maxLen ? d.name.substring(0, maxLen) + '...' : d.name;
+                });
+            
+            // Set up force simulation
+            const simulation = d3.forceSimulation(artistData)
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(vizWidth / 2, vizHeight / 2))
+                .force('collision', d3.forceCollide().radius(d => sizeScale(d.count) + 10))
+                .force('x', d3.forceX(vizWidth / 2).strength(0.05))
+                .force('y', d3.forceY(vizHeight / 2).strength(0.05));
+            
+            // Update positions on tick
+            simulation.on('tick', () => {
+                nodes.attr('transform', d => `translate(${d.x},${d.y})`);
+            });
+            
+            // Add drag behavior
+            nodes.call(d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended));
+            
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+            
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
+            
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                event.subject.fx = null;
+                event.subject.fy = null;
+            }
+        }
+        
+        function renderInnovationViz(data) {
+            const svg = d3.select('#innovation-viz');
+            const width = 1200, height = 500;
+            const margin = { top: 40, right: 40, bottom: 60, left: 80 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            console.log('Innovation viz - data length:', data.length);
+            
+            // Filter out data with zero or invalid views
+            const validData = data.filter(d => d.view_count > 0 && d.spectral_variance > 0);
+            console.log('Valid data for innovation viz:', validData.length);
+            
+            const x = d3.scaleLinear()
+                .domain(d3.extent(validData, d => d.spectral_variance))
+                .range([0, width - margin.left - margin.right])
+                .nice();
+            
+            const y = d3.scaleLog()
+                .domain([1, d3.max(validData, d => d.view_count)])
+                .range([height - margin.top - margin.bottom, 0])
+                .clamp(true);
+            
+            // Grid
+            g.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y)
+                    .tickSize(-(width - margin.left - margin.right))
+                    .tickFormat('')
+                    .ticks(5));
+            
+            g.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x)
+                    .tickSize(-(height - margin.top - margin.bottom))
+                    .tickFormat(''));
+            
+            // Circles
+            const circles = g.selectAll('circle')
+                .data(validData)
+                .join('circle')
+                .attr('cx', d => x(d.spectral_variance))
+                .attr('cy', d => y(Math.max(1, d.view_count)))
+                .attr('r', 0)
+                .attr('fill', 'var(--primary)')
+                .attr('fill-opacity', 0.5)
+                .attr('stroke', 'var(--tertiary)')
+                .attr('stroke-width', 1)
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('r', 8)
+                        .attr('fill-opacity', 1)
+                        .attr('stroke-width', 2);
+                    showTooltip(event, `<div class="tooltip-title">${d.title}</div>
+                        <div>Artist: ${d.uploader}</div>
+                        <div>Views: ${d.view_count.toLocaleString()}</div>
+                        <div>Spectral Variance: ${d.spectral_variance.toFixed(3)}</div>
+                        <div>Likes: ${d.like_count}</div>
+                        <div style="margin-top: 5px; color: var(--tertiary); font-size: 9px;">CLICK TO OPEN ON YOUTUBE</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('r', 4)
+                        .attr('fill-opacity', 0.5)
+                        .attr('stroke-width', 1);
+                    hideTooltip();
+                });
+            
+            circles.transition()
+                .duration(1000)
+                .delay((d, i) => i * 3)
+                .attr('r', 4);
+            
+            // Make circles clickable
+            circles.style('cursor', 'pointer')
+                .on('click', function(event, d) {
+                    if (d.url) {
+                        window.open(d.url, '_blank');
+                    }
+                });
+            
+            // Calculate and draw trend line
+            try {
+                const regression = linearRegression(
+                    validData.map(d => d.spectral_variance),
+                    validData.map(d => Math.log(Math.max(1, d.view_count)))
+                );
+                
+                const x1 = x.domain()[0];
+                const x2 = x.domain()[1];
+                const y1 = Math.exp(regression.slope * x1 + regression.intercept);
+                const y2 = Math.exp(regression.slope * x2 + regression.intercept);
+                
+                g.append('line')
+                    .attr('x1', x(x1))
+                    .attr('y1', y(Math.max(1, y1)))
+                    .attr('x2', x(x2))
+                    .attr('y2', y(Math.max(1, y2)))
+                    .attr('stroke', 'var(--secondary)')
+                    .attr('stroke-width', 2)
+                    .attr('stroke-dasharray', '5,5')
+                    .attr('opacity', 0.6);
+                
+                console.log('Trend line:', { slope: regression.slope, intercept: regression.intercept });
+            } catch (error) {
+                console.error('Error calculating trend line:', error);
+            }
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x).ticks(8));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y)
+                    .ticks(5)
+                    .tickFormat(d => {
+                        if (d >= 1000000) return (d / 1000000).toFixed(0) + 'M';
+                        if (d >= 1000) return (d / 1000).toFixed(0) + 'k';
+                        return d;
+                    }));
+            
+            // Labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height - 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'var(--text)')
+                .attr('font-size', '12px')
+                .text('Spectral Variance (Sonic Experimentation)');
+            
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'var(--text)')
+                .attr('font-size', '12px')
+                .text('View Count (log scale)');
+        }
+        
+        function renderMFCCViz(data) {
+            const svg = d3.select('#mfcc-viz');
+            const width = 1200, height = 600;
+            const margin = { top: 40, right: 140, bottom: 60, left: 70 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            const x = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.mfcc1_mean))
+                .range([0, width - margin.left - margin.right])
+                .nice();
+            
+            const y = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.mfcc2_mean))
+                .range([height - margin.top - margin.bottom, 0])
+                .nice();
+            
+            const colorScale = d3.scaleSequential()
+                .domain(d3.extent(data, d => d.tempo_bpm))
+                .interpolator(d3.interpolateViridis);
+            
+            const sizeScale = d3.scaleSqrt()
+                .domain(d3.extent(data, d => d.view_count))
+                .range([3, 15]);
+            
+            // Grid
+            g.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y).tickSize(-(width - margin.left - margin.right)).tickFormat(''));
+            
+            g.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x).tickSize(-(height - margin.top - margin.bottom)).tickFormat(''));
+            
+            // Circles
+            g.selectAll('circle')
+                .data(data)
+                .join('circle')
+                .attr('cx', d => x(d.mfcc1_mean))
+                .attr('cy', d => y(d.mfcc2_mean))
+                .attr('r', 0)
+                .attr('fill', d => colorScale(d.tempo_bpm))
+                .attr('fill-opacity', 0.6)
+                .attr('stroke', d => colorScale(d.tempo_bpm))
+                .attr('stroke-width', 1.5)
+                .style('cursor', 'pointer')
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('fill-opacity', 1)
+                        .attr('stroke-width', 3)
+                        .raise();
+                    showTooltip(event, `<div class="tooltip-title">${d.title}</div>
+                        <div>Artist: ${d.uploader}</div>
+                        <div>MFCC1: ${d.mfcc1_mean.toFixed(1)}</div>
+                        <div>MFCC2: ${d.mfcc2_mean.toFixed(1)}</div>
+                        <div>BPM: ${d.tempo_bpm.toFixed(1)}</div>
+                        <div>Views: ${d.view_count.toLocaleString()}</div>
+                        <div style="margin-top: 5px; color: #00d4ff; font-size: 9px;">CLICK TO OPEN ON YOUTUBE</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('fill-opacity', 0.6)
+                        .attr('stroke-width', 1.5);
+                    hideTooltip();
+                })
+                .on('click', function(event, d) {
+                    if (d.url) window.open(d.url, '_blank');
+                })
+                .transition()
+                .duration(1000)
+                .delay((d, i) => i * 5)
+                .attr('r', d => sizeScale(d.view_count));
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y));
+            
+            // Labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height - 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('MFCC 1 (Spectral Shape)');
+            
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('MFCC 2 (Spectral Detail)');
+            
+            // Legend
+            const legend = svg.append('g')
+                .attr('class', 'legend')
+                .attr('transform', `translate(${width - 120}, ${margin.top + 20})`);
+            
+            legend.append('text')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('fill', '#e0e0e8')
+                .attr('font-weight', 'bold')
+                .text('Tempo (BPM)');
+            
+            const legendScale = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.tempo_bpm))
+                .range([0, 100]);
+            
+            const defs = svg.select('defs').empty() ? svg.append('defs') : svg.select('defs');
+            const legendGradient = defs.append('linearGradient')
+                .attr('id', 'mfcc-legend-gradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '0%').attr('y2', '100%');
+            
+            legendGradient.selectAll('stop')
+                .data(d3.range(0, 1.1, 0.1))
+                .join('stop')
+                .attr('offset', d => `${d * 100}%`)
+                .attr('stop-color', d => colorScale(legendScale.domain()[0] + d * (legendScale.domain()[1] - legendScale.domain()[0])));
+            
+            legend.append('rect')
+                .attr('x', 0)
+                .attr('y', 10)
+                .attr('width', 15)
+                .attr('height', 100)
+                .attr('fill', 'url(#mfcc-legend-gradient)');
+            
+            legend.append('g')
+                .attr('transform', 'translate(15, 10)')
+                .call(d3.axisRight(legendScale).tickValues([80, 100, 120, 140, 160]).tickSize(0))
+                .select('.domain').remove();
+        }
+        
+        function renderChromaViz(data) {
+            const svg = d3.select('#chroma-viz');
+            const width = 1200, height = 500;
+            const margin = { top: 40, right: 40, bottom: 60, left: 70 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            const x = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.chroma_mean))
+                .range([0, width - margin.left - margin.right])
+                .nice();
+            
+            const y = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.chroma_std))
+                .range([height - margin.top - margin.bottom, 0])
+                .nice();
+            
+            const colorScale = d3.scaleSequential()
+                .domain(d3.extent(data, d => d.spectral_contrast_mean))
+                .interpolator(d3.interpolatePlasma);
+            
+            // Grid
+            g.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y).tickSize(-(width - margin.left - margin.right)).tickFormat(''));
+            
+            g.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x).tickSize(-(height - margin.top - margin.bottom)).tickFormat(''));
+            
+            // Circles
+            g.selectAll('circle')
+                .data(data)
+                .join('circle')
+                .attr('cx', d => x(d.chroma_mean))
+                .attr('cy', d => y(d.chroma_std))
+                .attr('r', 0)
+                .attr('fill', d => colorScale(d.spectral_contrast_mean))
+                .attr('fill-opacity', 0.6)
+                .attr('stroke', d => colorScale(d.spectral_contrast_mean))
+                .attr('stroke-width', 1.5)
+                .style('cursor', 'pointer')
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('fill-opacity', 1)
+                        .attr('stroke-width', 3)
+                        .raise();
+                    showTooltip(event, `<div class="tooltip-title">${d.title}</div>
+                        <div>Chroma Mean: ${d.chroma_mean.toFixed(3)}</div>
+                        <div>Chroma Std: ${d.chroma_std.toFixed(3)}</div>
+                        <div>Spectral Contrast: ${d.spectral_contrast_mean.toFixed(1)}</div>
+                        <div>BPM: ${d.tempo_bpm.toFixed(1)}</div>
+                        <div style="margin-top: 5px; color: #00d4ff; font-size: 9px;">CLICK TO OPEN ON YOUTUBE</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('fill-opacity', 0.6)
+                        .attr('stroke-width', 1.5);
+                    hideTooltip();
+                })
+                .on('click', function(event, d) {
+                    if (d.url) window.open(d.url, '_blank');
+                })
+                .transition()
+                .duration(1000)
+                .delay((d, i) => i * 5)
+                .attr('r', 5);
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y));
+            
+            // Labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height - 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('Chroma Mean (Harmonic Content)');
+            
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('Chroma Std (Harmonic Variation)');
+        }
+        
+        function renderSpectralProfileViz(data) {
+            const svg = d3.select('#spectral-profile-viz');
+            const width = 1200, height = 600;
+            const margin = { top: 40, right: 140, bottom: 60, left: 70 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            const x = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.spectral_bandwidth_mean))
+                .range([0, width - margin.left - margin.right])
+                .nice();
+            
+            const y = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.spectral_rolloff_mean))
+                .range([height - margin.top - margin.bottom, 0])
+                .nice();
+            
+            const colorScale = d3.scaleSequential()
+                .domain([75, 165])
+                .interpolator(d3.interpolateTurbo);
+            
+            const sizeScale = d3.scaleSqrt()
+                .domain(d3.extent(data, d => d.rms_mean))
+                .range([3, 15]);
+            
+            // Grid
+            g.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y).tickSize(-(width - margin.left - margin.right)).tickFormat(''));
+            
+            g.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x).tickSize(-(height - margin.top - margin.bottom)).tickFormat(''));
+            
+            // Circles
+            g.selectAll('circle')
+                .data(data)
+                .join('circle')
+                .attr('cx', d => x(d.spectral_bandwidth_mean))
+                .attr('cy', d => y(d.spectral_rolloff_mean))
+                .attr('r', 0)
+                .attr('fill', d => colorScale(d.tempo_bpm))
+                .attr('fill-opacity', 0.6)
+                .attr('stroke', d => colorScale(d.tempo_bpm))
+                .attr('stroke-width', 1.5)
+                .style('cursor', 'pointer')
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('fill-opacity', 1)
+                        .attr('stroke-width', 3)
+                        .raise();
+                    showTooltip(event, `<div class="tooltip-title">${d.title}</div>
+                        <div>Bandwidth: ${d.spectral_bandwidth_mean.toFixed(0)} Hz</div>
+                        <div>Rolloff: ${d.spectral_rolloff_mean.toFixed(0)} Hz</div>
+                        <div>Energy: ${d.rms_mean.toFixed(3)}</div>
+                        <div>BPM: ${d.tempo_bpm.toFixed(1)}</div>
+                        <div style="margin-top: 5px; color: #00d4ff; font-size: 9px;">CLICK TO OPEN ON YOUTUBE</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('fill-opacity', 0.6)
+                        .attr('stroke-width', 1.5);
+                    hideTooltip();
+                })
+                .on('click', function(event, d) {
+                    if (d.url) window.open(d.url, '_blank');
+                })
+                .transition()
+                .duration(1000)
+                .delay((d, i) => i * 5)
+                .attr('r', d => sizeScale(d.rms_mean));
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y));
+            
+            // Labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height - 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('Spectral Bandwidth (Frequency Spread) - Hz');
+            
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('Spectral Rolloff (Frequency Weight) - Hz');
+            
+            // Legend
+            const legend = svg.append('g')
+                .attr('class', 'legend')
+                .attr('transform', `translate(${width - 120}, ${margin.top + 20})`);
+            
+            legend.append('text')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('fill', '#e0e0e8')
+                .attr('font-weight', 'bold')
+                .text('Tempo (BPM)');
+            
+            const legendScale = d3.scaleLinear()
+                .domain([75, 165])
+                .range([0, 100]);
+            
+            const defs = svg.select('defs').empty() ? svg.append('defs') : svg.select('defs');
+            const legendGradient = defs.append('linearGradient')
+                .attr('id', 'spectral-profile-legend-gradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '0%').attr('y2', '100%');
+            
+            legendGradient.selectAll('stop')
+                .data(d3.range(0, 1.1, 0.1))
+                .join('stop')
+                .attr('offset', d => `${d * 100}%`)
+                .attr('stop-color', d => colorScale(75 + d * 90));
+            
+            legend.append('rect')
+                .attr('x', 0)
+                .attr('y', 10)
+                .attr('width', 15)
+                .attr('height', 100)
+                .attr('fill', 'url(#spectral-profile-legend-gradient)');
+            
+            legend.append('g')
+                .attr('transform', 'translate(15, 10)')
+                .call(d3.axisRight(legendScale).tickValues([80, 100, 120, 140, 160]).tickSize(0))
+                .select('.domain').remove();
+        }
+        
+        function renderRhythmViz(data) {
+            const svg = d3.select('#rhythm-viz');
+            const width = 1200, height = 500;
+            const margin = { top: 40, right: 40, bottom: 60, left: 70 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Create histogram
+            const x = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.onset_strength_mean))
+                .range([0, width - margin.left - margin.right])
+                .nice();
+            
+            const histogram = d3.histogram()
+                .domain(x.domain())
+                .thresholds(x.ticks(30))
+                .value(d => d.onset_strength_mean);
+            
+            const bins = histogram(data);
+            
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(bins, d => d.length)])
+                .range([height - margin.top - margin.bottom, 0]);
+            
+            // Grid
+            g.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y).tickSize(-(width - margin.left - margin.right)).tickFormat(''));
+            
+            // Gradient
+            const defs = svg.select('defs').empty() ? svg.append('defs') : svg.select('defs');
+            const gradient = defs.append('linearGradient')
+                .attr('id', 'rhythm-gradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '100%').attr('y2', '0%');
+            
+            gradient.append('stop')
+                .attr('offset', '0%')
+                .attr('stop-color', '#00d4ff')
+                .attr('stop-opacity', 0.8);
+            
+            gradient.append('stop')
+                .attr('offset', '50%')
+                .attr('stop-color', '#00ff41')
+                .attr('stop-opacity', 0.8);
+            
+            gradient.append('stop')
+                .attr('offset', '100%')
+                .attr('stop-color', '#ff0080')
+                .attr('stop-opacity', 0.8);
+            
+            // Bars
+            g.selectAll('rect')
+                .data(bins)
+                .join('rect')
+                .attr('x', d => x(d.x0) + 1)
+                .attr('y', height - margin.top - margin.bottom)
+                .attr('width', d => Math.max(0, x(d.x1) - x(d.x0) - 2))
+                .attr('height', 0)
+                .attr('fill', 'url(#rhythm-gradient)')
+                .attr('stroke', '#00ff41')
+                .attr('stroke-width', 0.5)
+                .on('mouseover', function(event, d) {
+                    d3.select(this).attr('opacity', 0.7);
+                    const avgTempo = d3.mean(d, track => track.tempo_bpm);
+                    showTooltip(event, `<div class="tooltip-title">Onset: ${d.x0.toFixed(2)}-${d.x1.toFixed(2)}</div>
+                        <div>${d.length} tracks</div>
+                        <div>Avg BPM: ${avgTempo ? avgTempo.toFixed(1) : 'N/A'}</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this).attr('opacity', 1);
+                    hideTooltip();
+                })
+                .transition()
+                .duration(1000)
+                .delay((d, i) => i * 20)
+                .attr('y', d => y(d.length))
+                .attr('height', d => height - margin.top - margin.bottom - y(d.length));
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y));
+            
+            // Labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height - 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('Onset Strength (Rhythmic Intensity)');
+            
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('Track Count');
+        }
+        
+        function renderZCRViz(data) {
+            const svg = d3.select('#zcr-viz');
+            const width = 1200, height = 600;
+            const margin = { top: 40, right: 140, bottom: 60, left: 70 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            const x = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.zcr_mean))
+                .range([0, width - margin.left - margin.right])
+                .nice();
+            
+            const y = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.spectral_bandwidth_mean))
+                .range([height - margin.top - margin.bottom, 0])
+                .nice();
+            
+            const colorScale = d3.scaleSequential()
+                .domain(d3.extent(data, d => d.rms_mean))
+                .interpolator(d3.interpolateCool);
+            
+            const sizeScale = d3.scaleSqrt()
+                .domain(d3.extent(data, d => d.onset_strength_mean))
+                .range([3, 15]);
+            
+            // Grid
+            g.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(y).tickSize(-(width - margin.left - margin.right)).tickFormat(''));
+            
+            g.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x).tickSize(-(height - margin.top - margin.bottom)).tickFormat(''));
+            
+            // Circles
+            g.selectAll('circle')
+                .data(data)
+                .join('circle')
+                .attr('cx', d => x(d.zcr_mean))
+                .attr('cy', d => y(d.spectral_bandwidth_mean))
+                .attr('r', 0)
+                .attr('fill', d => colorScale(d.rms_mean))
+                .attr('fill-opacity', 0.6)
+                .attr('stroke', d => colorScale(d.rms_mean))
+                .attr('stroke-width', 1.5)
+                .style('cursor', 'pointer')
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('fill-opacity', 1)
+                        .attr('stroke-width', 3)
+                        .raise();
+                    showTooltip(event, `<div class="tooltip-title">${d.title}</div>
+                        <div>ZCR: ${d.zcr_mean.toFixed(4)}</div>
+                        <div>Bandwidth: ${d.spectral_bandwidth_mean.toFixed(0)} Hz</div>
+                        <div>Energy: ${d.rms_mean.toFixed(3)}</div>
+                        <div>Onset: ${d.onset_strength_mean.toFixed(2)}</div>
+                        <div style="margin-top: 5px; color: #00d4ff; font-size: 9px;">CLICK TO OPEN ON YOUTUBE</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('fill-opacity', 0.6)
+                        .attr('stroke-width', 1.5);
+                    hideTooltip();
+                })
+                .on('click', function(event, d) {
+                    if (d.url) window.open(d.url, '_blank');
+                })
+                .transition()
+                .duration(1000)
+                .delay((d, i) => i * 5)
+                .attr('r', d => sizeScale(d.onset_strength_mean));
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0,${height - margin.top - margin.bottom})`)
+                .call(d3.axisBottom(x).tickFormat(d3.format('.3f')));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(y));
+            
+            // Labels
+            svg.append('text')
+                .attr('x', width / 2)
+                .attr('y', height - 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('Zero-Crossing Rate (Percussive Content)');
+            
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -height / 2)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e0e0e8')
+                .attr('font-size', '12px')
+                .text('Spectral Bandwidth (Hz)');
+            
+            // Legend
+            const legend = svg.append('g')
+                .attr('class', 'legend')
+                .attr('transform', `translate(${width - 120}, ${margin.top + 20})`);
+            
+            legend.append('text')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('fill', '#e0e0e8')
+                .attr('font-weight', 'bold')
+                .text('Energy (RMS)');
+            
+            const legendScale = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.rms_mean))
+                .range([0, 100]);
+            
+            const defs = svg.select('defs').empty() ? svg.append('defs') : svg.select('defs');
+            const legendGradient = defs.append('linearGradient')
+                .attr('id', 'zcr-legend-gradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '0%').attr('y2', '100%');
+            
+            legendGradient.selectAll('stop')
+                .data(d3.range(0, 1.1, 0.1))
+                .join('stop')
+                .attr('offset', d => `${d * 100}%`)
+                .attr('stop-color', d => colorScale(legendScale.domain()[0] + d * (legendScale.domain()[1] - legendScale.domain()[0])));
+            
+            legend.append('rect')
+                .attr('x', 0)
+                .attr('y', 10)
+                .attr('width', 15)
+                .attr('height', 100)
+                .attr('fill', 'url(#zcr-legend-gradient)');
+            
+            legend.append('g')
+                .attr('transform', 'translate(15, 10)')
+                .call(d3.axisRight(legendScale).ticks(5).tickSize(0).tickFormat(d3.format('.3f')))
+                .select('.domain').remove();
+        }
+        
+        function renderParallelViz(data) {
+            const svg = d3.select('#parallel-viz');
+            const width = 1200, height = 700;
+            const margin = { top: 60, right: 40, bottom: 40, left: 40 };
+            const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Select features for parallel coordinates
+            const features = [
+                { key: 'tempo_bpm', label: 'Tempo' },
+                { key: 'spectral_centroid_mean', label: 'Brightness' },
+                { key: 'rms_mean', label: 'Energy' },
+                { key: 'onset_strength_mean', label: 'Onset' },
+                { key: 'zcr_mean', label: 'ZCR' },
+                { key: 'chroma_mean', label: 'Chroma' },
+                { key: 'spectral_contrast_mean', label: 'Contrast' }
+            ];
+            
+            // Normalize data for each feature
+            const normalized = data.map(d => {
+                const norm = { ...d };
+                features.forEach(f => {
+                    const extent = d3.extent(data, track => track[f.key]);
+                    norm[f.key + '_norm'] = (d[f.key] - extent[0]) / (extent[1] - extent[0]);
+                });
+                return norm;
+            });
+            
+            const x = d3.scalePoint()
+                .domain(features.map(f => f.key))
+                .range([0, width - margin.left - margin.right]);
+            
+            const y = d3.scaleLinear()
+                .domain([0, 1])
+                .range([height - margin.top - margin.bottom, 0]);
+            
+            const colorScale = d3.scaleSequential()
+                .domain([75, 165])
+                .interpolator(d3.interpolateRainbow);
+            
+            // Line function
+            const line = d3.line()
+                .x((d, i) => x(features[i].key))
+                .y(d => y(d));
+            
+            // Draw lines
+            g.selectAll('path.parallel-line')
+                .data(normalized)
+                .join('path')
+                .attr('class', 'parallel-line')
+                .attr('d', d => line(features.map(f => d[f.key + '_norm'])))
+                .attr('fill', 'none')
+                .attr('stroke', d => colorScale(d.tempo_bpm))
+                .attr('stroke-width', 0.5)
+                .attr('opacity', 0.3)
+                .style('cursor', 'pointer')
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('stroke-width', 3)
+                        .attr('opacity', 1)
+                        .raise();
+                    showTooltip(event, `<div class="tooltip-title">${d.title}</div>
+                        <div>BPM: ${d.tempo_bpm.toFixed(1)}</div>
+                        <div>Artist: ${d.uploader}</div>
+                        <div style="margin-top: 5px; color: #00d4ff; font-size: 9px;">CLICK TO OPEN ON YOUTUBE</div>`);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('stroke-width', 0.5)
+                        .attr('opacity', 0.3);
+                    hideTooltip();
+                })
+                .on('click', function(event, d) {
+                    if (d.url) window.open(d.url, '_blank');
+                });
+            
+            // Draw axes
+            features.forEach(f => {
+                const extent = d3.extent(data, d => d[f.key]);
+                const axisScale = d3.scaleLinear()
+                    .domain(extent)
+                    .range([height - margin.top - margin.bottom, 0]);
+                
+                const axis = g.append('g')
+                    .attr('class', 'axis')
+                    .attr('transform', `translate(${x(f.key)},0)`)
+                    .call(d3.axisLeft(axisScale).ticks(5));
+                
+                axis.append('text')
+                    .attr('y', -20)
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', '#00ff41')
+                    .attr('font-size', '12px')
+                    .attr('font-weight', 'bold')
+                    .text(f.label);
+            });
+        }
+        
+        function linearRegression(x, y) {
+            const n = x.length;
+            const meanX = d3.mean(x);
+            const meanY = d3.mean(y);
+            
+            let num = 0, den = 0;
+            for (let i = 0; i < n; i++) {
+                num += (x[i] - meanX) * (y[i] - meanY);
+                den += (x[i] - meanX) ** 2;
+            }
+            
+            const slope = num / den;
+            const intercept = meanY - slope * meanX;
+            
+            return { slope, intercept };
+        }
+        
+        function showTooltip(event, content) {
+            const tooltip = d3.select('#tooltip');
+            tooltip.html(content)
+                .style('left', (event.pageX + 10) + 'px')
+                .style('top', (event.pageY - 10) + 'px')
+                .style('opacity', 1);
+        }
+        
+        function hideTooltip() {
+            d3.select('#tooltip').style('opacity', 0);
+        }
+    </script>
+</body>
+</html>
