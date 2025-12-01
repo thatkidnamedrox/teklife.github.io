@@ -47,7 +47,7 @@ An interactive D3.js visualization dashboard exploring Teklife footwork music th
 - Trend line shows relationship
 - **Interactive**: Click points to explore tracks
 
-### 7. MFCC Timbre Space 🆕
+### 7. MFCC Timbre Space
 **Insight**: Maps timbral characteristics using first two MFCCs
 - X-axis: MFCC 1 (overall spectral shape)
 - Y-axis: MFCC 2 (spectral detail)
@@ -55,14 +55,14 @@ An interactive D3.js visualization dashboard exploring Teklife footwork music th
 - Color: Tempo (viridis color scale)
 - Reveals clusters of similar timbres
 
-### 8. Harmonic Complexity 🆕
+### 8. Harmonic Complexity
 **Insight**: Chroma features reveal harmonic and tonal content
 - X-axis: Chroma mean (harmonic content level)
 - Y-axis: Chroma std (harmonic variation)
 - Color: Spectral contrast (plasma color scale)
 - Shows tracks with rich harmonic vs. percussive focus
 
-### 9. Spectral Profile 🆕
+### 9. Spectral Profile
 **Insight**: Frequency distribution characteristics
 - X-axis: Spectral bandwidth (frequency spread)
 - Y-axis: Spectral rolloff (where most energy is concentrated)
@@ -70,14 +70,14 @@ An interactive D3.js visualization dashboard exploring Teklife footwork music th
 - Color: Tempo (turbo color scale)
 - Reveals the "shape" of each track's frequency content
 
-### 10. Rhythmic Intensity Distribution 🆕
+### 10. Rhythmic Intensity Distribution
 **Insight**: Histogram of onset strength across all tracks
 - Shows distribution of rhythmic "punch"
 - Gradient colored bars (cyan → green → pink)
 - Reveals common intensity profiles in footwork
 - Higher onset = more aggressive, punchy rhythms
 
-### 11. Texture Analysis (Zero-Crossing Rate) 🆕
+### 11. Texture Analysis (Zero-Crossing Rate)
 **Insight**: Percussive and noise content analysis
 - X-axis: Zero-crossing rate (noisiness/percussive content)
 - Y-axis: Spectral bandwidth
@@ -85,7 +85,7 @@ An interactive D3.js visualization dashboard exploring Teklife footwork music th
 - Color: Energy level (cool color scale)
 - High ZCR = more high-frequency, percussive elements
 
-### 12. Multi-Dimensional Feature Space 🆕
+### 12. Multi-Dimensional Feature Space
 **Insight**: Parallel coordinates showing all features simultaneously
 - 7 dimensions: Tempo, Brightness, Energy, Onset, ZCR, Chroma, Contrast
 - Each line = one track
@@ -186,3 +186,4 @@ teklife-footwork-analysis.html (84KB, 2088 lines)
 **Built for exploring the digital musicology of Teklife footwork**  
 
 *Now with 12 visualizations covering tempo, spectral, timbral, harmonic, rhythmic, and textural features*
+
